@@ -1,0 +1,24 @@
+/* Add to both CSS files */
+.jsonforms-input {
+    @apply transition-all duration-200 ease-in-out;
+}
+
+.jsonforms-input:focus-within {
+    @apply ring-2 ring-blue-500 ring-opacity-50;
+}
+
+.error-field {
+    @apply border-red-400 ring-red-200;
+}
+
+pre {
+    @apply overflow-x-auto text-sm;
+}
+
+pre::-webkit-scrollbar {
+    @apply h-1.5;
+}
+
+pre::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+}
