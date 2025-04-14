@@ -8,7 +8,7 @@ import { customRenderers } from '../shared/custom-renderers.registry';
 import { ExtendedJsonSchema } from '../shared/types';
 
 @Component({
-  selector: 'app-form2',
+  selector: 'app-form3',
   standalone: true,
   imports: [CommonModule, JsonFormsModule, JsonFormsAngularMaterialModule],
   templateUrl: './form2.component.html',
@@ -30,7 +30,8 @@ export class Form2Component implements OnInit {
     allErrors: true,
     useDefaults: true,
     formats: {
-      'email': /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      'email': /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      'phone': /^\d{10}$/
     }
   });
 
@@ -41,7 +42,7 @@ export class Form2Component implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const formConfig = this.jsonSchemaService.getForm2Schema();
+    const formConfig = this.jsonSchemaService.getForm3Schema();
     this.schema = this.enhanceSchema(formConfig.schema);
     this.uischema = formConfig.uischema;
 
@@ -69,7 +70,7 @@ export class Form2Component implements OnInit {
 
   onFormChange(event: any): void {
     if (event?.data !== undefined) {
-      this.formData = this.sanitizeData(this.deepMerge(this.formData, event.data));
+      this.formData = this.sanitizeData({...event.data});
     }
     if (event?.errors !== undefined) {
       this.errors = event.errors.filter((err: any) => 
@@ -81,43 +82,59 @@ export class Form2Component implements OnInit {
   private enhanceSchema(original: JsonSchema): JsonSchema {
     const schema = JSON.parse(JSON.stringify(original)) as ExtendedJsonSchema;
     
-    // Product Info Enhancements
-    if (schema.properties?.['productInfo']?.properties) {
-      const productInfo = schema.properties['productInfo'] as ExtendedJsonSchema;
-      const props = productInfo.properties || {};
-
-      if (props['productName']) {
-        props['productName'].minLength = 2;
-        (props['productName'] as ExtendedJsonSchema).errorMessage = {
+    // User Information Enhancements
+    if (schema.properties?.['userInfo']?.properties) {
+      const userInfo = schema.properties['userInfo'] as ExtendedJsonSchema;
+      const props = userInfo.properties || {};
+      
+      if (props['name']) {
+        props['name'].minLength = 2;
+        (props['name'] as ExtendedJsonSchema).errorMessage = {
           required: "*Required",
           minLength: "*Must have at least 2 characters"
         };
       }
-
-      if (props['price']) {
-        (props['price'] as ExtendedJsonSchema).errorMessage = {
-          required: "*Required",
-          minimum: "*Must be at least $0.01"
-        };
-      }
-
-      productInfo.required = ['productName', 'category', 'price'];
-    }
-
-    // Supplier Info Enhancements
-    if (schema.properties?.['supplierInfo']?.properties) {
-      const supplierInfo = schema.properties['supplierInfo'] as ExtendedJsonSchema;
-      const props = supplierInfo.properties || {};
-
-      if (props['contactEmail']) {
-        props['contactEmail'].format = 'email';
-        (props['contactEmail'] as ExtendedJsonSchema).errorMessage = {
+      
+      if (props['email']) {
+        props['email'].format = 'email';
+        (props['email'] as ExtendedJsonSchema).errorMessage = {
           required: "*Required",
           format: "*Invalid email format"
         };
       }
+      
+      if (props['phone']) {
+        props['phone'].pattern = "^\\d{10}$";
+        (props['phone'] as ExtendedJsonSchema).errorMessage = {
+          pattern: "*Invalid Number"
+        };
+      }
 
-      supplierInfo.required = ['supplierName', 'contactEmail'];
+      userInfo.required = ['name', 'email'];
+    }
+
+    // Feedback Details Enhancements
+    if (schema.properties?.['feedbackDetails']?.properties) {
+      const feedbackDetails = schema.properties['feedbackDetails'] as ExtendedJsonSchema;
+      const props = feedbackDetails.properties || {};
+      
+      if (props['subject']) {
+        props['subject'].minLength = 3;
+        (props['subject'] as ExtendedJsonSchema).errorMessage = {
+          required: "*Required",
+          minLength: "*Must have at least 3 characters"
+        };
+      }
+      
+      if (props['message']) {
+        props['message'].minLength = 10;
+        (props['message'] as ExtendedJsonSchema).errorMessage = {
+          required: "*Required",
+          minLength: "*Must have at least 10 characters"
+        };
+      }
+
+      feedbackDetails.required = ['subject', 'type', 'message'];
     }
 
     return schema;
@@ -125,28 +142,21 @@ export class Form2Component implements OnInit {
 
   private sanitizeData(data: any): any {
     return {
-      productInfo: {
-        productName: (data.productInfo?.productName || '').toString().trim(),
-        category: data.productInfo?.category || '',
-        price: this.sanitizePrice(data.productInfo?.price),
-        inStock: !!data.productInfo?.inStock,
-        quantity: Math.max(0, parseInt(data.productInfo?.quantity || 0, 10)),
-        warrantyPeriod: Math.max(0, parseInt(data.productInfo?.warrantyPeriod || 0, 10)),
-        description: (data.productInfo?.description || '').toString().trim()
+      userInfo: {
+        name: (data.userInfo?.name || '').toString().trim(),
+        email: (data.userInfo?.email || '').toString().trim().toLowerCase(),
+        phone: (data.userInfo?.phone || '').toString().replace(/\D/g, ''),
+        customerType: data.userInfo?.customerType || ''
       },
-      supplierInfo: {
-        supplierName: (data.supplierInfo?.supplierName || '').toString().trim(),
-        contactEmail: (data.supplierInfo?.contactEmail || '').toString().trim().toLowerCase(),
-        rating: data.supplierInfo?.rating || ''
+      feedbackDetails: {
+        subject: (data.feedbackDetails?.subject || '').toString().trim(),
+        type: data.feedbackDetails?.type || '',
+        priority: data.feedbackDetails?.priority || 'Medium',
+        message: (data.feedbackDetails?.message || '').toString().trim(),
+        attachFile: !!data.feedbackDetails?.attachFile
       },
       _formSubmitted: !!data._formSubmitted
     };
-  }
-
-  
-  private sanitizePrice(value: any): number | null {
-    const price = parseFloat(value);
-    return isNaN(price) ? null : Math.max(0, price);
   }
 
   async submitForm(): Promise<void> {
@@ -185,49 +195,13 @@ export class Form2Component implements OnInit {
     const validationErrors: any[] = [];
     const data = this.formData;
 
-    // Product Info Validation
-    const requiredProductFields = ['productName', 'category', 'price'];
-    requiredProductFields.forEach(field => {
-      const value = data?.productInfo?.[field];
-      if (value === null || value === undefined || String(value).trim() === '') {
-        validationErrors.push({
-          instancePath: `/productInfo/${field}`,
-          keyword: 'required',
-          message: `*Required`,
-          schemaPath: '#/required',
-          params: { missingProperty: field }
-        });
-      }
-    });
-
-    // Conditional Validations
-    if (data?.productInfo?.category === 'Electronics' && !data?.productInfo?.warrantyPeriod) {
-      validationErrors.push({
-        instancePath: '/productInfo/warrantyPeriod',
-        keyword: 'required',
-        message: '*Required for Electronics',
-        schemaPath: '#/required',
-        params: { missingProperty: 'warrantyPeriod' }
-      });
-    }
-
-    if (data?.productInfo?.inStock && (!data?.productInfo?.quantity || data.productInfo.quantity < 1)) {
-      validationErrors.push({
-        instancePath: '/productInfo/quantity',
-        keyword: 'minimum',
-        message: '*Required when in stock',
-        schemaPath: '#/minimum',
-        params: { limit: 1 }
-      });
-    }
-
-    // Supplier Info Validation
-    const requiredSupplierFields = ['supplierName', 'contactEmail'];
-    requiredSupplierFields.forEach(field => {
-      const value = data?.supplierInfo?.[field];
+    // User Info Validation
+    const requiredUserFields = ['name', 'email'];
+    requiredUserFields.forEach(field => {
+      const value = data?.userInfo?.[field];
       if (!value || String(value).trim() === '') {
         validationErrors.push({
-          instancePath: `/supplierInfo/${field}`,
+          instancePath: `/userInfo/${field}`,
           keyword: 'required',
           message: `*Required`,
           schemaPath: '#/required',
@@ -236,54 +210,109 @@ export class Form2Component implements OnInit {
       }
     });
 
+    // Name Length Validation
+    const name = data?.userInfo?.name;
+    if (name && name.length < 2) {
+      validationErrors.push({
+        instancePath: '/userInfo/name',
+        keyword: 'minLength',
+        message: '*Must have at least 2 characters',
+        schemaPath: '#/properties/name/minLength',
+        params: { limit: 2 }
+      });
+    }
+
     // Email Format Validation
-    const email = data?.supplierInfo?.contactEmail;
+    const email = data?.userInfo?.email;
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       validationErrors.push({
-        instancePath: '/supplierInfo/contactEmail',
+        instancePath: '/userInfo/email',
         keyword: 'format',
         params: { format: 'email' },
         message: '*Invalid email format',
-        schemaPath: '#/properties/contactEmail/format'
+        schemaPath: '#/properties/email/format'
+      });
+    }
+
+    // Phone Format Validation (if provided)
+    const phone = data?.userInfo?.phone;
+    if (phone && !/^\d{10}$/.test(phone)) {
+      validationErrors.push({
+        instancePath: '/userInfo/phone',
+        keyword: 'pattern',
+        message: '*Invalid Number',
+        schemaPath: '#/properties/phone/pattern',
+        params: { pattern: /^\d{10}$/.toString() }
+      });
+    }
+
+    // Feedback Details Validation
+    const requiredFeedbackFields = ['subject', 'type', 'message'];
+    requiredFeedbackFields.forEach(field => {
+      const value = data?.feedbackDetails?.[field];
+      if (!value || String(value).trim() === '') {
+        validationErrors.push({
+          instancePath: `/feedbackDetails/${field}`,
+          keyword: 'required',
+          message: `*Required`,
+          schemaPath: '#/required',
+          params: { missingProperty: field }
+        });
+      }
+    });
+
+    // Subject Length Validation
+    const subject = data?.feedbackDetails?.subject;
+    if (subject && subject.length < 3) {
+      validationErrors.push({
+        instancePath: '/feedbackDetails/subject',
+        keyword: 'minLength',
+        message: '*Must have at least 3 characters',
+        schemaPath: '#/properties/subject/minLength',
+        params: { limit: 3 }
+      });
+    }
+
+    // Message Length Validation
+    const message = data?.feedbackDetails?.message;
+    if (message && message.length < 10) {
+      validationErrors.push({
+        instancePath: '/feedbackDetails/message',
+        keyword: 'minLength',
+        message: '*Must have at least 10 characters',
+        schemaPath: '#/properties/message/minLength',
+        params: { limit: 10 }
+      });
+    }
+
+    // If it's a bug report, priority must be specified
+    if (data?.feedbackDetails?.type === 'Bug' && !data?.feedbackDetails?.priority) {
+      validationErrors.push({
+        instancePath: '/feedbackDetails/priority',
+        keyword: 'required',
+        message: '*Required for Bug reports',
+        schemaPath: '#/required',
+        params: { missingProperty: 'priority' }
       });
     }
 
     return validationErrors;
   }
 
-  private deepMerge(target: any, source: any): any {
-    const output = { ...target };
-    if (this.isObject(target) && this.isObject(source)) {
-      Object.keys(source).forEach(key => {
-        if (this.isObject(source[key])) {
-          output[key] = this.deepMerge(target[key] || {}, source[key]);
-        } else {
-          output[key] = source[key];
-        }
-      });
-    }
-    return output;
-  }
-
-  private isObject(item: any): boolean {
-    return item && typeof item === 'object' && !Array.isArray(item);
-  }
-
   private getInitialFormData(): any {
     return {
-      productInfo: {
-        productName: '',
-        category: '',
-        price: null,
-        inStock: false,
-        quantity: 0,
-        warrantyPeriod: null,
-        description: ''
+      userInfo: {
+        name: '',
+        email: '',
+        phone: '',
+        customerType: ''
       },
-      supplierInfo: {
-        supplierName: '',
-        contactEmail: '',
-        rating: ''
+      feedbackDetails: {
+        subject: '',
+        type: '',
+        priority: 'Medium',
+        message: '',
+        attachFile: false
       },
       _formSubmitted: false
     };

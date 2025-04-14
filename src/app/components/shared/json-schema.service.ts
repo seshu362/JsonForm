@@ -312,4 +312,166 @@ export class JsonSchemaService {
 
     return { schema, uischema };
   }
+  getForm3Schema() {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        userInfo: {
+          type: 'object',
+          properties: {
+            name: { 
+              type: 'string', 
+              minLength: 2,
+              description: 'Your full name'
+            },
+            email: { 
+              type: 'string', 
+              format: 'email',
+              description: 'Email for contact purposes'
+            },
+            phone: { 
+              type: 'string', 
+              pattern: '^[0-9]{10}$',
+              description: 'Optional contact number (10 digits)'
+            },
+            customerType: { 
+              type: 'string',
+              enum: ['New', 'Returning', 'VIP', 'Other'],
+              description: 'Customer category'
+            }
+          },
+          required: ['name', 'email']
+        },
+        feedbackDetails: {
+          type: 'object',
+          properties: {
+            subject: { 
+              type: 'string',
+              minLength: 3,
+              description: 'Brief subject of your feedback'
+            },
+            type: { 
+              type: 'string',
+              enum: ['Compliment', 'Suggestion', 'Question', 'Bug', 'Complaint'],
+              description: 'Feedback category'
+            },
+            priority: { 
+              type: 'string',
+              enum: ['Low', 'Medium', 'High', 'Critical'],
+              default: 'Medium',
+              description: 'Priority level (required for Bug reports)'
+            },
+            message: { 
+              type: 'string',
+              minLength: 10,
+              description: 'Detailed feedback'
+            },
+            attachFile: { 
+              type: 'boolean',
+              description: 'Do you want to attach screenshots or files?'
+            }
+          },
+          required: ['subject', 'type', 'message']
+        },
+        _formSubmitted: {
+          type: 'boolean'
+        }
+      }
+    };
+
+    const uischema = {
+      type: 'VerticalLayout',
+      elements: [
+        {
+          type: 'Group',
+          label: 'Your Information',
+          elements: [
+            {
+              type: 'HorizontalLayout',
+              elements: [
+                { 
+                  type: 'Control', 
+                  scope: '#/properties/userInfo/properties/name',
+                  options: { custom: true }
+                },
+                { 
+                  type: 'Control', 
+                  scope: '#/properties/userInfo/properties/email',
+                  options: { custom: true }
+                }
+              ]
+            },
+            {
+              type: 'HorizontalLayout',
+              elements: [
+                { 
+                  type: 'Control', 
+                  scope: '#/properties/userInfo/properties/phone',
+                  options: { custom: true }
+                },
+                { 
+                  type: 'Control', 
+                  scope: '#/properties/userInfo/properties/customerType',
+                  options: { custom: true }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          type: 'Group',
+          label: 'Feedback',
+          elements: [
+            {
+              type: 'HorizontalLayout',
+              elements: [
+                { 
+                  type: 'Control', 
+                  scope: '#/properties/feedbackDetails/properties/subject',
+                  options: { custom: true }
+                },
+                { 
+                  type: 'Control', 
+                  scope: '#/properties/feedbackDetails/properties/type',
+                  options: { custom: true }
+                }
+              ]
+            },
+            { 
+              type: 'Control', 
+              scope: '#/properties/feedbackDetails/properties/priority',
+              rule: {
+                effect: 'SHOW',
+                condition: {
+                  scope: '#/properties/feedbackDetails/properties/type',
+                  schema: { const: 'Bug' }
+                }
+              }
+            },
+            { 
+              type: 'Control', 
+              scope: '#/properties/feedbackDetails/properties/message',
+              options: { 
+                multi: true,
+                custom: true
+              }
+            },
+            { 
+              type: 'Control', 
+              scope: '#/properties/feedbackDetails/properties/attachFile'
+            }
+          ]
+        },
+        {
+          type: 'Control',
+          scope: '#/properties/_formSubmitted',
+          options: {
+            hidden: true
+          }
+        }
+      ]
+    };
+
+    return { schema, uischema };
+  }
 }

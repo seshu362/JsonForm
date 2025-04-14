@@ -17,6 +17,14 @@ export const routes: Routes = [
       import('./components/form2/form2.component').then(m => m.Form2Component)
   },
   {
+    path: 'form3',
+    loadComponent: () =>
+
+
+      
+      import('./components/form3/form3.component').then(m => m.Form3Component)
+  },
+  {
     path: '**',
     redirectTo: 'form1' // optional fallback to form1 if route not found
   }
